@@ -1,6 +1,5 @@
 import collections
 from collections import defaultdict, Counter
-
 import pandas
 from openpyxl import load_workbook
 
@@ -16,14 +15,11 @@ def make_report(log_file_name, report_template_file_name, report_output_file_nam
     visits_dict = defaultdict(int)
     goods_dict = []
     visits_dict_month = {}
+    popular_goods_month = {}
 
     m_goods = []
     f_goods = []
     for element in excel_data_dict:
-        # Добавляем элемент в словарь sales_dict
-        # element['item'] - название товара
-        # Если ключа с таким названием в sales_dict нет, то будет значение 0,
-        # таким образом мы просто увеличим его на 1
         visits_dict[element['Браузер']] += 1
 
         if element['Купленные товары']:
@@ -68,6 +64,27 @@ def make_report(log_file_name, report_template_file_name, report_output_file_nam
                 else:
                     visits_dict_month[str(most_popular_browsers[i][0])] = {number_of_month: 1}
 
+    for element in excel_data_dict:
+        datestamp = element['Дата посещения']
+        date1 = datestamp.to_pydatetime()
+        date2 = date1.date()
+        number_of_month = int(date2.strftime("%m"))
+
+        temp_goods_month = element['Купленные товары'].split(',')
+
+        for elem in temp_goods_month:
+            for i in range(0, NUMBER_OF_POPULAR_GOODS):
+                for item in most_popular_goods[i]:
+                    if elem == item:
+                        if elem in popular_goods_month:
+                            if number_of_month in popular_goods_month[elem]:
+                                popular_goods_month[elem][number_of_month] += 1
+                            else:
+                                popular_goods_month[elem][number_of_month] = 1
+                        else:
+                            popular_goods_month[elem] = {}
+                            popular_goods_month[elem][number_of_month] = 1
+
     # Открываем файл шаблона отчета report_template.xlsx
     wb = load_workbook(filename=report_template_file_name)
     ws = wb.active
@@ -93,6 +110,17 @@ def make_report(log_file_name, report_template_file_name, report_output_file_nam
         int_row = ord('A')
         row = chr(int_row) + str(19 + i - 1)
         ws[row] = str(most_popular_goods[i - 1][0])
+        # pprint(most_popular_goods[i - 1][0])
+        # Во вложенном цикле заполняем покупки популярных товаров по месяцам
+        for j in range(1, 12):
+            int_col = ord('A')
+            cell = chr(int_col + j) + str(19 + i - 1)
+            try:
+                # Поиск ключа (товара, для которого нужно проставить количество продаж
+                temp_key = str(most_popular_goods[i - 1][0])
+                ws[cell] = str(popular_goods_month[temp_key][j])
+            except:
+                pass
 
     # Заполняем самые популярные и непопулярные товары у мужчин и женщин
     ws['B31'] = str(most_popular_m_goods[0][0])
@@ -104,4 +132,4 @@ def make_report(log_file_name, report_template_file_name, report_output_file_nam
     wb.save(report_output_file_name)
 
 
-#make_report('logs.xlsx', 'report_template.xlsx', 'report.xlsx')
+make_report('logs.xlsx', 'report_template.xlsx', 'report.xlsx')
