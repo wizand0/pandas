@@ -4,16 +4,19 @@ from collections import defaultdict, Counter
 import pandas
 from openpyxl import load_workbook
 
+NUMBER_OF_POPULAR_BROWERS = 7
+NUMBER_OF_POPULAR_GOODS = 7
+
 
 def make_report(log_file_name, report_template_file_name, report_output_file_name):
     # Чтение и анализ данных из Excel
     excel_data = pandas.read_excel(log_file_name, sheet_name='log', engine='openpyxl')
     excel_data_dict = excel_data.to_dict(orient='records')
 
-    # pprint(excel_data_dict)
-
     visits_dict = defaultdict(int)
     goods_dict = []
+    visits_dict_month = {}
+
     m_goods = []
     f_goods = []
     for element in excel_data_dict:
@@ -38,37 +41,60 @@ def make_report(log_file_name, report_template_file_name, report_output_file_nam
                 f_goods.append(el)
 
     # Ищем самые популярные браузеры и товары и самые непопулярные
-    most_popular_browsers = Counter(visits_dict).most_common(7)
-
-    most_popular_goods = collections.Counter(goods_dict).most_common(7)
-
-    most_popular_m_goods = collections.Counter(m_goods).most_common(2)
+    most_popular_browsers = Counter(visits_dict).most_common(NUMBER_OF_POPULAR_BROWERS)
+    most_popular_goods = collections.Counter(goods_dict).most_common(NUMBER_OF_POPULAR_GOODS)
+    most_popular_m_goods = collections.Counter(m_goods).most_common(1)
     temp_less_popular_m_goods = collections.Counter(m_goods).most_common()
-    less_popular_m_goods = temp_less_popular_m_goods[:-(len(temp_less_popular_m_goods)+1):-1][0]
-
-    most_popular_f_goods = collections.Counter(f_goods).most_common(2)
+    less_popular_m_goods = temp_less_popular_m_goods[:-(len(temp_less_popular_m_goods) + 1):-1][0]
+    most_popular_f_goods = collections.Counter(f_goods).most_common(1)
     temp_less_popular_f_goods = collections.Counter(f_goods).most_common()
-    less_popular_f_goods = temp_less_popular_f_goods[:-(len(temp_less_popular_f_goods)+1):-1][0]
+    less_popular_f_goods = temp_less_popular_f_goods[:-(len(temp_less_popular_f_goods) + 1):-1][0]
+
+    for element in excel_data_dict:
+        datestamp = element['Дата посещения']
+        date1 = datestamp.to_pydatetime()
+        date2 = date1.date()
+        number_of_month = int(date2.strftime("%m"))
+
+        for i in range(NUMBER_OF_POPULAR_BROWERS):
+            if element['Браузер'] == str(most_popular_browsers[i][0]):
+                if str(most_popular_browsers[i][0]) in visits_dict_month:
+                    for m in range(0, 11):
+                        if number_of_month == m:
+                            if number_of_month in visits_dict_month[str(most_popular_browsers[i][0])]:
+                                visits_dict_month[str(most_popular_browsers[i][0])][number_of_month] += 1
+                            else:
+                                visits_dict_month[str(most_popular_browsers[i][0])][number_of_month] = 1
+                else:
+                    visits_dict_month[str(most_popular_browsers[i][0])] = {number_of_month: 1}
 
     # Открываем файл шаблона отчета report_template.xlsx
     wb = load_workbook(filename=report_template_file_name)
     ws = wb.active
-    ws['A5'] = str(most_popular_browsers[0][0])
-    ws['A6'] = str(most_popular_browsers[1][0])
-    ws['A7'] = str(most_popular_browsers[2][0])
-    ws['A8'] = str(most_popular_browsers[3][0])
-    ws['A9'] = str(most_popular_browsers[4][0])
-    ws['A10'] = str(most_popular_browsers[5][0])
-    ws['A11'] = str(most_popular_browsers[6][0])
 
-    ws['A19'] = str(most_popular_goods[0][0])
-    ws['A20'] = str(most_popular_goods[1][0])
-    ws['A21'] = str(most_popular_goods[2][0])
-    ws['A22'] = str(most_popular_goods[3][0])
-    ws['A23'] = str(most_popular_goods[4][0])
-    ws['A24'] = str(most_popular_goods[5][0])
-    ws['A25'] = str(most_popular_goods[6][0])
+    # Заполняем таблицу по использованию браузеров
+    # В этом цикле заполняем популярные браузеры. Количество нормируется константой
+    for i in range(1, NUMBER_OF_POPULAR_BROWERS + 1):
+        int_row = ord('A')
+        row = chr(int_row) + str(5 + i - 1)
+        ws[row] = str(most_popular_browsers[i - 1][0])
+        # Во вложенном цикле заполняем посещяемость по месяцам
+        for j in range(1, 12):
+            int_col = ord('A')
+            cell = chr(int_col + j) + str(5 + i - 1)
+            try:
+                ws[cell] = str(visits_dict_month[str(most_popular_browsers[i - 1][0])][j])
+            except:
+                pass
 
+    # Заполняем таблицу по приобретенным товарам
+    # В этом цикле заполняем популярные товаров. Количество нормируется константой
+    for i in range(1, NUMBER_OF_POPULAR_GOODS + 1):
+        int_row = ord('A')
+        row = chr(int_row) + str(19 + i - 1)
+        ws[row] = str(most_popular_goods[i - 1][0])
+
+    # Заполняем самые популярные и непопулярные товары у мужчин и женщин
     ws['B31'] = str(most_popular_m_goods[0][0])
     ws['B32'] = str(most_popular_f_goods[0][0])
     ws['B33'] = str(less_popular_m_goods[0])
@@ -76,3 +102,6 @@ def make_report(log_file_name, report_template_file_name, report_output_file_nam
 
     # Сохраняем файл-отчет
     wb.save(report_output_file_name)
+
+
+make_report('logs.xlsx', 'report_template.xlsx', 'report.xlsx')
