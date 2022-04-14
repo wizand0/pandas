@@ -104,4 +104,4 @@ def make_report(log_file_name, report_template_file_name, report_output_file_nam
     wb.save(report_output_file_name)
 
 
-make_report('logs.xlsx', 'report_template.xlsx', 'report.xlsx')
+#make_report('logs.xlsx', 'report_template.xlsx', 'report.xlsx')
